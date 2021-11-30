@@ -10,6 +10,7 @@
 #define SERV_PORT 6379
 #define NUM_READER 100
 #define NUM_WRITER 100
+#define NUM_RDWR   100
 
 static const int OK = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -45,14 +46,18 @@ int DBSetString(const char *key, const char *value) {
 }
 
 void *Reader(void *args) {
-    char buf[256];
-    DBGetString("hello", buf);
-    printf("%s\n", buf);
+    for (int i = 0; i < NUM_RDWR; ++i) {
+        char buf[256];
+        DBGetString("hello", buf);
+        printf("%s\n", buf);
+    }
     return NULL;
 }
 
 void *Writer(void *args) {
-    DBSetString("hello", "world");
+    for (int i = 0; i < NUM_RDWR; ++i) {
+        DBSetString("hello", "world");
+    }
     return NULL;
 }
 
