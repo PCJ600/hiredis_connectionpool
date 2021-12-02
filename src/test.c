@@ -10,9 +10,9 @@
 
 #define SERV_IP "127.0.0.1"
 #define SERV_PORT 6379
-#define NUM_READER 25
-#define NUM_WRITER 25
-#define NUM_RDWR   200
+#define NUM_READER 1000
+#define NUM_WRITER 1000
+#define NUM_RDWR   50
 
 static const int OK = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -155,7 +155,7 @@ void testcase_with_connpool()
 }
 
 int main() {
-    testcase_with_single_connection();
+    // testcase_with_single_connection();
     testcase_with_connpool();
     return 0;
 }

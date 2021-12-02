@@ -14,14 +14,8 @@
 
 #define IPV4_BUF_LEN 20
 
-// TODO:
-// 1、 服务器连接超时场景要考虑
-// 2、连接空闲检测，连接回收
-
-
 typedef struct DBConn {
     redisContext *handle;
-    // TODO: set, get
 } DBConn;
 
 
