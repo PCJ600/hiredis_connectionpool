@@ -20,14 +20,8 @@ static void DBConnFree(void *ptr)
     free(conn);
 }
 
-// 创建一个连接
-DBConn *DBConnCreate(DBConnPool *pool)
+int DBConnStart(DBConnPool *pool, DBConn **conn)
 {
-    DBConn *conn;
-    if ((conn = (DBConn *)malloc(sizeof(*conn))) == NULL) {
-        return NULL;
-    }
-
     struct timeval tv;
     tv.tv_sec = pool->conn_timeout_sec;
     tv.tv_usec = pool->conn_timeout_usec;
@@ -39,10 +33,24 @@ DBConn *DBConnCreate(DBConnPool *pool)
         } else {
             printf("redisConnect failed, redisContext is NULL!");
         }
+        return -1;
+    }
+    (*conn)->handle = c;
+    return 0;
+}
+
+
+// 创建一个连接
+DBConn *DBConnCreate(DBConnPool *pool)
+{
+    DBConn *conn;
+    if ((conn = (DBConn *)malloc(sizeof(*conn))) == NULL) {
         return NULL;
     }
 
-    conn->handle = c;
+    if (DBConnStart(pool, &conn) != 0) {
+        return NULL;
+    }
     return conn;
 }
 
@@ -50,6 +58,10 @@ DBConn *DBConnCreate(DBConnPool *pool)
 DBConnPool *DBConnPoolCreate(int max_conn_num)
 {
     DBConnPool *p = (DBConnPool *)malloc(sizeof(*p));
+    if (p == NULL) {
+        return NULL;
+    }
+
     strcpy(p->host, SERV_IP);
     p->port = SERV_PORT;
     p->cur_conn_num = 1; // 初始只给1个连接
@@ -92,7 +104,7 @@ DBConn *DBConnGet(DBConnPool *pool)
         } else {
             DBConn *conn = DBConnCreate(pool);
             if (conn == NULL) {
-                assert("DBConGet failed, con't create connection!");
+                assert("DBConGet failed, con't create connection!"); // err
                 pthread_mutex_unlock(&pool->mutex);
                 return NULL;
             }
