@@ -14,6 +14,9 @@
 
 #define IPV4_BUF_LEN 20
 
+#define SERV_IP "127.0.0.1"
+#define SERV_PORT 6379
+
 typedef struct DBConn {
     redisContext *handle;
 } DBConn;

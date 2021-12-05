@@ -3,8 +3,6 @@
 #include <string.h>
 #include "list.h"
 
-#define SERV_IP "127.0.0.1"
-#define SERV_PORT 6379
 
 static const int CONN_TIMEOUT_SEC = 5;
 static const int CONN_TIMEOUT_USEC = 0;

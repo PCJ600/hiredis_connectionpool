@@ -2,8 +2,8 @@
 
 ## TODO:
 
-1、服务器连接超时, 客户端需检测到断线并自动重连
-2、连接空闲检测, 定时回收空闲的连接
+1、连接空闲检测, 定时回收空闲的连接
+2、发布订阅
 
 #### memory leak check
 valgrind --tool=memcheck --leak-check=full  ./test

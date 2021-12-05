@@ -1,6 +1,9 @@
 #include "hiredis_api.h"
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
+
+#define BUFFER_SIZE 256
 
 int DBConnStart(DBConnPool *pool, DBConn **conn);
 
@@ -68,6 +71,7 @@ int DBGenericCommand(DBConnPool *pool, const char *fmt, ...)
     return ret;
 }
 
+// get [key]
 int DBGetString(DBConnPool *pool, const char *key, char *value)
 {
     DBConn *conn = DBConnGet(pool);
@@ -96,6 +100,7 @@ int DBGetString(DBConnPool *pool, const char *key, char *value)
     return ret;
 }
 
+// set [key] [value]
 int DBSetString(DBConnPool *pool, const char *key, const char *value)
 {
     DBConn *conn = DBConnGet(pool);
@@ -117,3 +122,86 @@ int DBSetString(DBConnPool *pool, const char *key, const char *value)
     DBConnRelease(pool, conn);
     return ret;
 }
+
+int DBGetInt32(DBConnPool *pool, const char *key, int32_t *value)
+{
+    char buf[BUFFER_SIZE];
+    int ret = DBGetString(pool, key, buf);
+    if (ret != HIREDIS_OK) {
+        return ret;
+    }
+    *value = atoi(buf);
+    return HIREDIS_OK;
+}
+
+int DBSetInt32(DBConnPool *pool, const char *key, int32_t value)
+{
+    char buf[BUFFER_SIZE];
+    sprintf(buf, "%d", value);
+    int ret = DBSetString(pool, key, buf);
+    if (ret != HIREDIS_OK) {
+        return ret;
+    }
+    return HIREDIS_OK;
+}
+
+int DBGetUint32(DBConnPool *pool, const char *key, uint32_t *value)
+{
+    return DBGetInt32(pool, key, (int32_t *)value);
+}
+
+int DBSetUint32(DBConnPool *pool, const char *key, uint32_t value)
+{
+    char buf[BUFFER_SIZE];
+    sprintf(buf, "%u", value);
+    int ret = DBSetString(pool, key, buf);
+    if (ret != HIREDIS_OK) {
+        return ret;
+    }
+    return HIREDIS_OK;
+}
+
+int DBGetInt64(DBConnPool *pool, const char *key, int64_t *value)
+{
+    char buf[BUFFER_SIZE];
+    int ret = DBGetString(pool, key, buf);
+    if (ret != HIREDIS_OK) {
+        return ret;
+    }
+    *value = strtoll(buf, NULL, 10);
+    return HIREDIS_OK;
+}
+
+int DBSetInt64(DBConnPool *pool, const char *key, int64_t value)
+{
+    char buf[BUFFER_SIZE];
+    sprintf(buf, "%lld", value);
+    int ret = DBSetString(pool, key, buf);
+    if (ret != HIREDIS_OK) {
+        return ret;
+    }
+    return HIREDIS_OK;
+}
+
+int DBGetUint64(DBConnPool *pool, const char *key, uint64_t *value)
+{
+    char buf[BUFFER_SIZE];
+    int ret = DBGetString(pool, key, buf);
+    if (ret != HIREDIS_OK) {
+        return ret;
+    }
+    *value = strtoull(buf, NULL, 10);
+    return HIREDIS_OK;
+}
+
+int DBSetUint64(DBConnPool *pool, const char *key, uint64_t value)
+{
+    char buf[BUFFER_SIZE];
+    sprintf(buf, "%llu", value);
+    int ret = DBSetString(pool, key, buf);
+    if (ret != HIREDIS_OK) {
+        return ret;
+    }
+    return HIREDIS_OK;
+}
+

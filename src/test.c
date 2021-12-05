@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <limits.h>
 #include <pthread.h>
 #include <string.h>
 #include <time.h>
@@ -15,6 +16,7 @@
 #define NUM_RDWR   10
 
 static const int OK = 0;
+static const int MAX_NUM_CONNECTIONS_PER_CONNPOOL = 10;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int DBShortConnGetString(redisContext *c, const char *key, char *value) {
@@ -164,11 +166,10 @@ void testcase_connpool_set_server_timeout()
 {
     time_t t1 = time(NULL);
 
-    const int MAX_NUM_CONNECTIONS_PER_CONNPOOL = 10;
     DBConnPool *p = DBConnPoolCreate(MAX_NUM_CONNECTIONS_PER_CONNPOOL);
     assert(p != NULL);
     assert(DBGenericCommand(p, "CONFIG SET timeout %d", 1) == 0); // timeout: 1 s
-    sleep(10);  // server timeout
+    sleep(5);  // server timeout
 
     pthread_t wid[NUM_WRITER];
     pthread_t rid[NUM_READER];
@@ -190,32 +191,83 @@ void testcase_connpool_set_server_timeout()
     DBConnPoolDestroy(p);
     time_t t2 = time(NULL);
     printf("%ld s\n", t2 - t1);
-
 }
 
-void testcase_get_int()
+void testcase_getset_int32()
 {
-    struct timeval tv; 
-    tv.tv_sec = 5; tv.tv_usec = 0;
-    redisContext *c = redisConnectWithTimeout(SERV_IP, SERV_PORT, tv);
-    assert(c != NULL && !c->err);
+    DBConnPool *p = DBConnPoolCreate(MAX_NUM_CONNECTIONS_PER_CONNPOOL);
+    assert(p != NULL);
 
-    redisReply *reply = (redisReply *)redisCommand(c, "SET intkey %s", "12345");
-    assert(reply != NULL && strcmp(reply->str, "OK") == 0);
-    freeReplyObject(reply);
+    // set intkey 12345
+    uint32_t val = 0;
+    int ret = DBSetUint32(p, "intkey", 12345);
+    assert(ret == 0);
+    ret = DBGetUint32(p, "intkey", &val);
+    assert(ret == 0 && val == 12345);
 
-    reply = (redisReply *)redisCommand(c, "Get intkey");
-    assert(reply != NULL && reply->type == REDIS_REPLY_STRING);
-    assert(strcmp(reply->str, "12345") == 0);
+    // set key 2147483649
+    ret = DBSetUint32(p, "intkey", UINT_MAX);
+    assert(ret == 0);
+    ret = DBGetUint32(p, "intkey", &val);
+    assert(ret == 0 && val == UINT_MAX);
+
+    // set intkey -2147483648
+    int ival = 0;
+    ret = DBSetInt32(p, "intkey", INT_MIN);
+    assert(ret == 0);
+    ret = DBGetInt32(p, "intkey", &ival);
+    assert(ret == 0 && ival == INT_MIN);
+    
+    // set intkey 2147483647
+    ret = DBSetInt32(p, "intkey", INT_MAX);
+    assert(ret == 0);
+    ret = DBGetInt32(p, "intkey", &ival);
+    assert(ret == 0 && ival == INT_MAX);
+
+    DBConnPoolDestroy(p);
     printf("%s OK\n", __func__);
-    freeReplyObject(reply);
-    redisFree(c);
+}
+
+void testcase_getset_int64()
+{
+    DBConnPool *p = DBConnPoolCreate(MAX_NUM_CONNECTIONS_PER_CONNPOOL);
+    assert(p != NULL);
+
+    // set int64key 12345
+    uint64_t val = 0;
+    int ret = DBSetUint64(p, "int64key", 12345);
+    assert(ret == 0);
+    ret = DBGetUint64(p, "int64key", &val);
+    assert(ret == 0 && val == 12345);
+
+    // set int64key ULONG_MAX
+    ret = DBSetUint64(p, "int64key", ULLONG_MAX);
+    assert(ret == 0);
+    ret = DBGetUint64(p, "int64key", &val);
+    assert(ret == 0 && val == ULLONG_MAX);
+
+    // set int64key LONG_MIN
+    int64_t ival = 0;
+    ret = DBSetInt64(p, "int64key", LLONG_MIN);
+    assert(ret == 0);
+    ret = DBGetInt64(p, "int64key", &ival);
+    assert(ret == 0 && ival == LLONG_MIN);
+    
+    // set int64key LONG_MAX
+    ret = DBSetInt64(p, "int64key", LLONG_MAX);
+    assert(ret == 0);
+    ret = DBGetInt64(p, "int64key", &ival);
+    assert(ret == 0 && ival == LLONG_MAX);
+
+    DBConnPoolDestroy(p);
+    printf("%s OK\n", __func__);
 }
 
 int main() {
-    testcase_single_connection();
+    // testcase_single_connection();
     testcase_connpool();
-    // testcase_connpool_set_server_timeout();
-    testcase_get_int();
+    testcase_connpool_set_server_timeout();
+    testcase_getset_int32();
+    testcase_getset_int64();
     return 0;
 }
