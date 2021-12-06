@@ -2,6 +2,7 @@
 #define __HIREDIS_API_H__
 
 #include "hiredis_connpool.h"
+#include <async.h>
 
 enum HIREDIS_STATE {
     HIREDIS_OK = 0,
@@ -11,6 +12,8 @@ enum HIREDIS_STATE {
     HIREDIS_REPLY_TYPE_ERR,
     HIREDIS_REPLY_SET_FAILED,
     HIREDIS_STR_TO_INT32_FAILED,
+    HIREDIS_PTHREAD_CREATE_FAILED,
+    HIREDIS_MALLOC_FAILED,
     HIREDIS_OTHER_ERR,
 };
 
@@ -34,5 +37,6 @@ int DBSetInt64(DBConnPool *pool, const char *key, int64_t value);
 
 
 // TODO: pubsub API
+int DBPSubscribeKeyspaceEvent(const char *pattern, redisCallbackFn *fn, void *args);
 
 #endif

@@ -8,63 +8,62 @@
 
 #define SERV_IP "127.0.0.1"
 #define SERV_PORT 6379
-#define NUM_READER 100
-#define NUM_WRITER 100
-#define NUM_RDWR   100
+#define NUM_READER 500
+#define NUM_WRITER 500
+#define NUM_RDWR   10
 
 static const int OK = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-int DBGetString(redisContext *c, const char *key, char *value) {
+int DBGetString(const char *key, char *value) {
+    struct timeval tv; 
+    tv.tv_sec = 5; tv.tv_usec = 0;
+    redisContext *c = redisConnectWithTimeout(SERV_IP, SERV_PORT, tv);
+    assert(c != NULL && !c->err);
+
     char cmd[256];
     sprintf(cmd, "GET %s", key);
-    pthread_mutex_lock(&mutex);
     redisReply *reply = (redisReply *)redisCommand(c, cmd);
-    pthread_mutex_unlock(&mutex);
-    
-    if (reply->type == REDIS_REPLY_NIL) {
-        value[0] = '\0';
-    } else {
-        assert(reply->type == REDIS_REPLY_STRING);
-        assert(reply->str != NULL);
-        strcpy(value, reply->str);
-    }
+    assert(reply->str != NULL);
+    strcpy(value, reply->str);
     freeReplyObject(reply);
+    redisFree(c);
     return OK;
 }
 
-int DBSetString(redisContext *c, const char *key, const char *value) {
+int DBSetString(const char *key, const char *value) {
+    struct timeval tv; 
+    tv.tv_sec = 5; tv.tv_usec = 0;
+    redisContext *c = redisConnectWithTimeout(SERV_IP, SERV_PORT, tv);
+    assert(c != NULL && !c->err);
+
     char cmd[256];
     sprintf(cmd, "SET %s %s", key, value);
-    pthread_mutex_lock(&mutex);
     redisReply *reply = (redisReply *)redisCommand(c, cmd);
-    assert(!strcmp(reply->str, "OK"));
-    pthread_mutex_unlock(&mutex);
     freeReplyObject(reply);
+    redisFree(c);
     return OK;
 }
 
 void *Reader(void *args) {
-    redisContext *c = (redisContext *)args;
     char key[16];
     char value[16];
     for (int i = 0; i < NUM_RDWR; ++i) {
         sprintf(key, "hello%d", i);
         sprintf(value, "world%d", i);
-        DBGetString(c, key, value);
+        DBGetString(key, value);
         printf("key: %s, value: %s\n", key, value);
     }
     return NULL;
 }
 
 void *Writer(void *args) {
-    redisContext *c = (redisContext *)args;
     char key[16];
     char value[16];
     for (int i = 0; i < NUM_RDWR; ++i) {
         sprintf(key, "hello%d", i);
         sprintf(value, "world%d", i);
-        DBSetString(c, key, value);
+        DBSetString(key, value);
     }
     return NULL;
 }
@@ -74,16 +73,11 @@ void testcase() {
     pthread_t wid[NUM_WRITER];
     pthread_t rid[NUM_READER];
 
-    struct timeval tv; 
-    tv.tv_sec = 5; tv.tv_usec = 0;
-    redisContext *c = redisConnectWithTimeout(SERV_IP, SERV_PORT, tv);
-    assert(c != NULL && !c->err);
-
     for (int i = 0; i < NUM_WRITER; ++i) {
-        pthread_create(&wid[i], NULL, Writer, c);
+        pthread_create(&wid[i], NULL, Writer, NULL);
     }
     for (int i = 0; i < NUM_READER; ++i) {
-        pthread_create(&rid[i], NULL, Reader, c);
+        pthread_create(&rid[i], NULL, Reader, NULL);
     }
 
     for (int i = 0; i < NUM_WRITER; ++i) {
@@ -92,7 +86,6 @@ void testcase() {
     for (int i = 0; i < NUM_READER; ++i) {
         pthread_join(rid[i], NULL);
     }
-    redisFree(c);
     time_t t2 = time(NULL);
     printf("%ld s\n", t2 - t1);
 }

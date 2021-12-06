@@ -175,7 +175,8 @@ int DBGetInt64(DBConnPool *pool, const char *key, int64_t *value)
 int DBSetInt64(DBConnPool *pool, const char *key, int64_t value)
 {
     char buf[BUFFER_SIZE];
-    sprintf(buf, "%lld", value);
+    sprintf(buf, "%ld", value);
+
     int ret = DBSetString(pool, key, buf);
     if (ret != HIREDIS_OK) {
         return ret;
@@ -197,7 +198,7 @@ int DBGetUint64(DBConnPool *pool, const char *key, uint64_t *value)
 int DBSetUint64(DBConnPool *pool, const char *key, uint64_t value)
 {
     char buf[BUFFER_SIZE];
-    sprintf(buf, "%llu", value);
+    sprintf(buf, "%lu", value);
     int ret = DBSetString(pool, key, buf);
     if (ret != HIREDIS_OK) {
         return ret;

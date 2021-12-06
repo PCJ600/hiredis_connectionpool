@@ -52,7 +52,6 @@ void *Reader(void *args) {
     redisContext *c = (redisContext *)args;
     char key[16];
     char value[16];
-    int ret;
     for (int i = 0; i < NUM_RDWR; ++i) {
         sprintf(key, "hello%d", i);
         sprintf(value, "world%d", i);
@@ -136,7 +135,6 @@ void testcase_connpool()
 {
     time_t t1 = time(NULL);
 
-    const int MAX_NUM_CONNECTIONS_PER_CONNPOOL = 60;
     DBConnPool *p = DBConnPoolCreate(MAX_NUM_CONNECTIONS_PER_CONNPOOL);
     assert(p != NULL);
 
@@ -263,11 +261,52 @@ void testcase_getset_int64()
     printf("%s OK\n", __func__);
 }
 
+
+void testCb(redisAsyncContext *c, void *r, void *privdata)
+{
+    redisReply *reply = (redisReply *)r;
+    if (reply == NULL) {
+        assert("pubsub callback failed, reply is null");
+        return;
+    }
+    if (reply->type == REDIS_REPLY_ARRAY) {
+        if (strcmp(reply->element[0]->str, "psubscribe") == 0) {
+            return;
+        }
+
+        for (int i = 0; i < reply->elements; ++i) {
+            printf("%s\n ", reply->element[i]->str);
+        }
+    }
+    return;
+}
+
+void testcase_pubsub()
+{
+    const int PUBSUB_NUM = 100;
+    char buf[256];
+    for (int i = 0; i < PUBSUB_NUM; ++i) {
+        sprintf(buf, "hello%d", i);
+        DBPSubscribeKeyspaceEvent(buf, testCb, NULL);
+    }
+
+    DBConnPool *p = DBConnPoolCreate(MAX_NUM_CONNECTIONS_PER_CONNPOOL);
+    for (int i = 0; i < PUBSUB_NUM; ++i) {
+        sprintf(buf, "hello%d", i);
+        DBSetString(p, buf, "1");
+    }
+
+    DBConnPoolDestroy(p);
+    printf("%s OK, press Ctrl+C \n", __func__);
+    pause();
+}
+
 int main() {
-    // testcase_single_connection();
+    testcase_single_connection();
     testcase_connpool();
     testcase_connpool_set_server_timeout();
     testcase_getset_int32();
     testcase_getset_int64();
+    testcase_pubsub();
     return 0;
 }
