@@ -206,3 +206,72 @@ int DBSetUint64(DBConnPool *pool, const char *key, uint64_t value)
     return HIREDIS_OK;
 }
 
+
+// 进程级hiredis连接池封装
+static DBConnPool *g_connPool = NULL;
+
+void __attribute__((constructor)) HiredisConnPoolInit()
+{
+    static const int MAX_NUM_CONNECTIONS_PER_CONNPOOL = 10;
+    g_connPool = DBConnPoolCreate(MAX_NUM_CONNECTIONS_PER_CONNPOOL);
+    assert(g_connPool != NULL);
+}
+
+int HiredisGenericCommand(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int ret = DBGenericCommand(g_connPool, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+int HiredisGetString(const char *key, char *value)
+{
+    return DBGetString(g_connPool, key, value);
+}
+
+int HiredisSetString(const char *key, const char *value)
+{
+    return DBSetString(g_connPool, key, value);
+}
+
+int HiredisGetUint32(const char *key, uint32_t *value)
+{
+    return DBGetUint32(g_connPool, key, value);
+}
+
+int HiredisSetUint32(const char *key, uint32_t value)
+{
+    return DBSetUint32(g_connPool, key, value);
+}
+
+int HiredisGetInt32(const char *key, int32_t *value)
+{
+    return DBGetInt32(g_connPool, key, value);
+}
+
+int HiredisSetInt32(const char *key, int32_t value)
+{
+    return DBSetInt32(g_connPool, key, value);
+}
+
+int HiredisGetUint64(const char *key, uint64_t *value)
+{
+    return DBGetUint64(g_connPool, key, value);
+}
+
+int HiredisSetUint64(const char *key, uint64_t value)
+{
+    return DBSetUint64(g_connPool, key, value);
+}
+
+int HiredisGetInt64(const char *key, int64_t *value)
+{
+    return DBGetInt64(g_connPool, key, value);
+}
+
+int HiredisSetInt64(const char *key, int64_t value)
+{
+    return DBSetInt64(g_connPool, key, value);
+}

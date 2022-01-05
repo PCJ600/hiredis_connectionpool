@@ -301,12 +301,33 @@ void testcase_pubsub()
     pause();
 }
 
-int main() {
-    testcase_single_connection();
+void testcase_pool()
+{
     testcase_connpool();
     testcase_connpool_set_server_timeout();
     testcase_getset_int32();
     testcase_getset_int64();
     testcase_pubsub();
+}
+
+void testcase_pool_hide()
+{
+    const int PUBSUB_NUM = 100;
+    char buf[256];
+    for (int i = 0; i < PUBSUB_NUM; ++i) {
+        sprintf(buf, "hello%d", i);
+        DBPSubscribeKeyspaceEvent(buf, testCb, NULL);
+    }
+    for (int i = 0; i < PUBSUB_NUM; ++i) {
+        sprintf(buf, "hello%d", i);
+        HiredisSetString(buf, "1");
+    }
+    printf("%s OK, press Ctrl+C \n", __func__);
+    pause();
+}
+
+int main() {
+    testcase_single_connection();
+    testcase_pool();
     return 0;
 }
