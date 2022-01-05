@@ -1,26 +1,31 @@
 # hiredis connection pool demo
 
 ## TODO:
-1、检测连接空闲, 定时回收空闲连接
-(问题: 当前连接池采用FIFO存储空闲连接, 考虑只有一个线程频繁调DB接口从连接池获取连接的场景, 会导致无法有效地检测到空闲连接)
+1、complete pubsub API
 
 
 ## 环境
-debian 10 amd64
-源码安装redis, hiredis, libevent:
-redis 6.0.10
-hiredis 1.0.2
-libevent 2.0.18-stable
+linux x86_64, install redis, hiredis, libevent:
+* redis 6.0.10
+* hiredis 1.0.2
+* libevent 2.0.18-stable
 
 ## compile and run
+
+```
+redis-server /etc/redis/redis.conf # 1、firstly, start redis-server
+
 cd build 
 cmake ../ && make -j4
 ./test_connpool
+```
 
 ## memory leak check
+```
 valgrind --tool=memcheck --leak-check=full  ./test_connpool
+```
 
-### 其他问题
+### other problems
 1、短连接过多场景, fd超过1024解决方法: 
 ```
 ulimit -n 8192

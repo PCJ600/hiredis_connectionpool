@@ -1,17 +1,18 @@
 #include "hiredis_api.h"
+#include "hiredis_log.h"
 #include <string.h>
 #include <signal.h>
 #include <adapters/libevent.h>
 
 void connectCallback(const redisAsyncContext *c, int status) {
     if (status != REDIS_OK) {
-        printf("%s Error: %s\n", __func__, c->errstr);
+        HiredisClientLog(LOG_ERR, "%s Error: %s\n", __func__, c->errstr);
     }
 }
  
 void disconnectCallback(const redisAsyncContext *c, int status) {
     if (status != REDIS_OK) {
-        printf("%s Error: %s\n", __func__, c->errstr);
+        HiredisClientLog(LOG_ERR, "%s Error: %s\n", __func__, c->errstr);
     }
 }
 

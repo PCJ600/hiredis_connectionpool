@@ -8,6 +8,7 @@
 #include <hiredis/hiredis.h>
 #include "hiredis_connpool.h"
 #include "hiredis_api.h"
+#include "hiredis_log.h"
 
 #define SERV_IP "127.0.0.1"
 #define SERV_PORT 6379
@@ -326,8 +327,16 @@ void testcase_pool_hide()
     pause();
 }
 
+void testcase_log()
+{
+    HiredisClientLog(LOG_WARNING, "hello world!\n");
+    HiredisClientLog(LOG_WARNING, "cost: %d\n", 1);
+    HiredisClientLog(LOG_WARNING, "string: %s\n", "abc");
+}
+
 int main() {
     testcase_single_connection();
+    testcase_log();
     testcase_pool();
     return 0;
 }

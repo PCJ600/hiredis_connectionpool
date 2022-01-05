@@ -1,4 +1,5 @@
 #include "hiredis_api.h"
+#include "hiredis_log.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,7 +8,6 @@
 
 int DBConnStart(DBConnPool *pool, DBConn **conn);
 
-// Inner API
 // 如果请求失败, 可能是因为服务端设置了连接超时, 主动关闭连接
 // 客户端检测到这种场景，需要重新发起一次连接请求, 而不是直接返回出错
 static void *DBConnvCommand(DBConnPool *pool, DBConn *conn, const char *fmt, va_list ap)
@@ -21,19 +21,19 @@ static void *DBConnvCommand(DBConnPool *pool, DBConn *conn, const char *fmt, va_
     }
 
     redisContext *c = conn->handle;
-    printf("first request failed, c->err: %d, c->errstr: %s\n", c->err, c->errstr); // info
+    HiredisClientLog(LOG_WARNING, "first request failed, c->err: %d, c->errstr: %s\n", c->err, c->errstr);
     redisFree(c);
 
     int ret = DBConnStart(pool, &conn);
     if (ret != 0) {
-        printf("reconnect failed!\n"); // err
+        HiredisClientLog(LOG_ERR, "reconnect failed!\n");
         va_end(ap2);
         return NULL;
     }
 
     reply = redisvCommand(conn->handle, fmt, ap2);
     if (reply == NULL) {
-        printf("retry failed after reconnect: err: %d, errstr: %s\n", c->err, c->errstr);  // err
+        HiredisClientLog(LOG_ERR, "retry failed after reconnect: err: %d, errstr: %s\n", c->err, c->errstr);
     }
     va_end(ap2);
     return reply;
@@ -48,8 +48,6 @@ static void *DBConnCommand(DBConnPool *pool, DBConn *conn, const char *fmt, ...)
     return reply;
 }
 
-
-// external API
 int DBGenericCommand(DBConnPool *pool, const char *fmt, ...)
 {
     DBConn *conn = DBConnGet(pool);
@@ -71,7 +69,7 @@ int DBGenericCommand(DBConnPool *pool, const char *fmt, ...)
     return ret;
 }
 
-// get [key]
+// redis-cli get [key]
 int DBGetString(DBConnPool *pool, const char *key, char *value)
 {
     DBConn *conn = DBConnGet(pool);
@@ -88,10 +86,10 @@ int DBGetString(DBConnPool *pool, const char *key, char *value)
             if (reply->str == NULL) {
                 ret = HIREDIS_REPLY_STR_NIL;
             } else {
-                strcpy(value, reply->str);  // request success
+                strcpy(value, reply->str);
             }
         } else {
-            printf("reply->type: %d", reply->type);  // err
+            HiredisClientLog(LOG_ERR, "get string failed, reply->type: %d\n", reply->type);
             ret = HIREDIS_REPLY_TYPE_ERR;
         }
     }
@@ -100,7 +98,7 @@ int DBGetString(DBConnPool *pool, const char *key, char *value)
     return ret;
 }
 
-// set [key] [value]
+// redis-cli set [key] [value]
 int DBSetString(DBConnPool *pool, const char *key, const char *value)
 {
     DBConn *conn = DBConnGet(pool);
@@ -138,11 +136,7 @@ int DBSetInt32(DBConnPool *pool, const char *key, int32_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%d", value);
-    int ret = DBSetString(pool, key, buf);
-    if (ret != HIREDIS_OK) {
-        return ret;
-    }
-    return HIREDIS_OK;
+    return DBSetString(pool, key, buf);
 }
 
 int DBGetUint32(DBConnPool *pool, const char *key, uint32_t *value)
@@ -154,11 +148,7 @@ int DBSetUint32(DBConnPool *pool, const char *key, uint32_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%u", value);
-    int ret = DBSetString(pool, key, buf);
-    if (ret != HIREDIS_OK) {
-        return ret;
-    }
-    return HIREDIS_OK;
+    return DBSetString(pool, key, buf);
 }
 
 int DBGetInt64(DBConnPool *pool, const char *key, int64_t *value)
@@ -176,12 +166,7 @@ int DBSetInt64(DBConnPool *pool, const char *key, int64_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%ld", value);
-
-    int ret = DBSetString(pool, key, buf);
-    if (ret != HIREDIS_OK) {
-        return ret;
-    }
-    return HIREDIS_OK;
+    return DBSetString(pool, key, buf);
 }
 
 int DBGetUint64(DBConnPool *pool, const char *key, uint64_t *value)
@@ -199,13 +184,8 @@ int DBSetUint64(DBConnPool *pool, const char *key, uint64_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%lu", value);
-    int ret = DBSetString(pool, key, buf);
-    if (ret != HIREDIS_OK) {
-        return ret;
-    }
-    return HIREDIS_OK;
+    return DBSetString(pool, key, buf);
 }
-
 
 // 进程级hiredis连接池封装
 static DBConnPool *g_connPool = NULL;

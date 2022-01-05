@@ -1,4 +1,5 @@
 #include "hiredis_connpool.h"
+#include "hiredis_log.h"
 #include <assert.h>
 #include <string.h>
 #include "list.h"
@@ -26,10 +27,10 @@ int DBConnStart(DBConnPool *pool, DBConn **conn)
     redisContext *c = redisConnectWithTimeout(pool->host, pool->port, tv);
     if (c == NULL || c->err) {
         if (c != NULL) {
-            printf("redisConnect failed, redisContext is not NULL!");
+            HiredisClientLog(LOG_ERR, "redisConnect failed, redisContext is not NULL!\n");
             redisFree(c);
         } else {
-            printf("redisConnect failed, redisContext is NULL!");
+            HiredisClientLog(LOG_ERR, "redisConnect failed, redisContext is NULL!\n");
         }
         return -1;
     }
@@ -43,10 +44,12 @@ DBConn *DBConnCreate(DBConnPool *pool)
 {
     DBConn *conn;
     if ((conn = (DBConn *)malloc(sizeof(*conn))) == NULL) {
+        HiredisClientLog(LOG_ERR, "DBConnCreate failed, malloc err!\n");
         return NULL;
     }
 
     if (DBConnStart(pool, &conn) != 0) {
+        HiredisClientLog(LOG_ERR, "DBConnCreate failed, connect err!\n");
         return NULL;
     }
     return conn;
@@ -57,12 +60,13 @@ DBConnPool *DBConnPoolCreate(int max_conn_num)
 {
     DBConnPool *p = (DBConnPool *)malloc(sizeof(*p));
     if (p == NULL) {
+        HiredisClientLog(LOG_ERR, "DBConnPoolCreate failed, malloc connpool err!\n");
         return NULL;
     }
 
-    strcpy(p->host, SERV_IP);
+    strcpy(p->host, SERV_IP); // TODO: pass SERV_IP, SERV_PORT by func parameters
     p->port = SERV_PORT;
-    p->cur_conn_num = 1; // 初始只给1个连接
+    p->cur_conn_num = 1;
     p->max_conn_num = max_conn_num;
     p->conn_timeout_sec = CONN_TIMEOUT_SEC;
     p->conn_timeout_usec = CONN_TIMEOUT_USEC;
@@ -74,6 +78,7 @@ DBConnPool *DBConnPoolCreate(int max_conn_num)
     if (p->free_conn_list == NULL) {
         pthread_mutex_destroy(&p->mutex);
         pthread_cond_destroy(&p->cond);
+        HiredisClientLog(LOG_ERR, "DBConnPoolCreate failed, free_conn_list is null!\n");
         return NULL;
     }
     listSetFreeMethod(p->free_conn_list, DBConnFree);
@@ -83,6 +88,9 @@ DBConnPool *DBConnPoolCreate(int max_conn_num)
         DBConn *conn = DBConnCreate(p);
         if (conn == NULL) {
             listRelease(p->free_conn_list);
+            pthread_mutex_destroy(&p->mutex);
+            pthread_cond_destroy(&p->cond);
+            HiredisClientLog(LOG_ERR, "DBConnPoolCreate failed, initial connection err!\n");
             return NULL;
         }
         listPushBack(p->free_conn_list, conn);
@@ -102,7 +110,7 @@ DBConn *DBConnGet(DBConnPool *pool)
         } else {
             DBConn *conn = DBConnCreate(pool);
             if (conn == NULL) {
-                assert("DBConGet failed, con't create connection!"); // err
+                HiredisClientLog(LOG_ERR, "DBConGet failed, can't create connection!");
                 pthread_mutex_unlock(&pool->mutex);
                 return NULL;
             }

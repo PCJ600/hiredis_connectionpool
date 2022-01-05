@@ -6,7 +6,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/hiredis-1.0.2
 )
 
-add_library(connpool SHARED hiredis_api.c hiredis_connpool.c hiredis_pubsub.c list.c)
+add_library(connpool SHARED hiredis_api.c hiredis_connpool.c hiredis_pubsub.c hiredis_log.c list.c)
 target_link_libraries(connpool hiredis event pthread)
 
 add_executable(test_connpool test_connpool.c)
