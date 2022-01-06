@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <pthread.h>
-#include <hiredis/hiredis.h>
+#include "hiredis/hiredis.h"
 #include "list.h"
 
 #define CONNPOOL_TRUE 1
@@ -25,26 +25,29 @@ typedef struct DBConn {
 typedef struct DBConnPool {
     char host[IPV4_BUF_LEN];
     int port;
-    int cur_conn_num;      // 初始连接个数
-    int max_conn_num;      // 最大连接个数
-    int conn_timeout_sec;  // 连接超时, 单位: 秒
-    int conn_timeout_usec; // 连接超时, 单位: 微妙
+    int cur_conn_num;
+    int max_conn_num;
+    int conn_timeout_sec;
+    int conn_timeout_usec;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    list *free_conn_list;  // 空闲连接队列
+    list *free_conn_list;
 } DBConnPool;
 
 
-// 创建连接池
+// create connpool
 DBConnPool *DBConnPoolCreate(int max_conn_num);
 
-// 获取一个可用连接
+// get one free conn
 DBConn *DBConnGet(DBConnPool *pool);
 
-// 释放一个连接
+// release one connection
 void DBConnRelease(DBConnPool *pool, DBConn *conn);
 
-// 销毁连接池
+// destroy connpool
 void DBConnPoolDestroy(DBConnPool *pool);
+
+// connect redis based on existed DBConn
+int DBConnStart(DBConnPool *pool, DBConn **conn);
 
 #endif

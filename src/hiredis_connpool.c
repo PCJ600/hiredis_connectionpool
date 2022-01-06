@@ -4,11 +4,9 @@
 #include <string.h>
 #include "list.h"
 
-
 static const int CONN_TIMEOUT_SEC = 5;
 static const int CONN_TIMEOUT_USEC = 0;
 
-// 释放一个连接
 static void DBConnFree(void *ptr)
 {
     DBConn *conn = (DBConn *)ptr;
@@ -19,6 +17,7 @@ static void DBConnFree(void *ptr)
     free(conn);
 }
 
+// connect redis based on existed DBConn
 int DBConnStart(DBConnPool *pool, DBConn **conn)
 {
     struct timeval tv;
@@ -27,19 +26,18 @@ int DBConnStart(DBConnPool *pool, DBConn **conn)
     redisContext *c = redisConnectWithTimeout(pool->host, pool->port, tv);
     if (c == NULL || c->err) {
         if (c != NULL) {
-            HiredisClientLog(LOG_ERR, "redisConnect failed, redisContext is not NULL!\n");
+            HiredisClientLog(LOG_ERR, "redisConnect failed, c->err: %d\n", c->err);
             redisFree(c);
         } else {
             HiredisClientLog(LOG_ERR, "redisConnect failed, redisContext is NULL!\n");
         }
-        return -1;
+        return CONNPOOL_ERR;
     }
     (*conn)->handle = c;
-    return 0;
+    return CONNPOOL_OK;
 }
 
 
-// 创建一个连接
 DBConn *DBConnCreate(DBConnPool *pool)
 {
     DBConn *conn;
@@ -64,11 +62,11 @@ DBConnPool *DBConnPoolCreate(int max_conn_num)
         return NULL;
     }
 
-    strcpy(p->host, SERV_IP); // TODO: pass SERV_IP, SERV_PORT by func parameters
+    strcpy(p->host, SERV_IP);                   // TODO: pass SERV_IP, SERV_PORT by func parameters
     p->port = SERV_PORT;
     p->cur_conn_num = 1;
     p->max_conn_num = max_conn_num;
-    p->conn_timeout_sec = CONN_TIMEOUT_SEC;
+    p->conn_timeout_sec = CONN_TIMEOUT_SEC;     // TODO: pass timeout by func parameters
     p->conn_timeout_usec = CONN_TIMEOUT_USEC;
 
     (void)pthread_mutex_init(&p->mutex, NULL);
@@ -83,7 +81,7 @@ DBConnPool *DBConnPoolCreate(int max_conn_num)
     }
     listSetFreeMethod(p->free_conn_list, DBConnFree);
 
-    // 初始建立cur_conn_num个连接
+    // initial cur_conn_num connections
     for (int i = 0; i < p->cur_conn_num; ++i) {
         DBConn *conn = DBConnCreate(p);
         if (conn == NULL) {
@@ -99,7 +97,7 @@ DBConnPool *DBConnPoolCreate(int max_conn_num)
 }
 
 
-// 获取一个可用连接
+// get one free connection
 DBConn *DBConnGet(DBConnPool *pool)
 {
     pthread_mutex_lock(&pool->mutex);
@@ -110,7 +108,7 @@ DBConn *DBConnGet(DBConnPool *pool)
         } else {
             DBConn *conn = DBConnCreate(pool);
             if (conn == NULL) {
-                HiredisClientLog(LOG_ERR, "DBConGet failed, can't create connection!");
+                HiredisClientLog(LOG_ERR, "DBConnGet failed, can't create connection!");
                 pthread_mutex_unlock(&pool->mutex);
                 return NULL;
             }
@@ -124,7 +122,7 @@ DBConn *DBConnGet(DBConnPool *pool)
     return conn;
 }
 
-// 归还一个连接
+// push back one connection
 void DBConnRelease(DBConnPool *pool, DBConn *conn)
 {
     pthread_mutex_lock(&pool->mutex);
@@ -135,7 +133,7 @@ void DBConnRelease(DBConnPool *pool, DBConn *conn)
     pthread_mutex_unlock(&pool->mutex);
 }
 
-// 销毁连接池
+// destroy connpool
 void DBConnPoolDestroy(DBConnPool *pool)
 {
     if (pool == NULL) {

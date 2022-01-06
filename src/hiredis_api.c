@@ -1,10 +1,24 @@
 #include "hiredis_api.h"
-#include "hiredis_log.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include "hiredis_connpool.h"
+#include "hiredis_log.h"
 
 #define BUFFER_SIZE 256
+
+enum HIREDIS_STATE {
+    HIREDIS_OK = 0,
+    HIREDIS_DBCONN_NIL,
+    HIREDIS_REPLY_NIL,
+    HIREDIS_REPLY_STR_NIL,
+    HIREDIS_REPLY_TYPE_ERR,
+    HIREDIS_REPLY_SET_FAILED,
+    HIREDIS_STR_TO_INT32_FAILED,
+    HIREDIS_PTHREAD_CREATE_FAILED,
+    HIREDIS_MALLOC_FAILED,
+    HIREDIS_OTHER_ERR,
+};
 
 int DBConnStart(DBConnPool *pool, DBConn **conn);
 
@@ -48,7 +62,7 @@ static void *DBConnCommand(DBConnPool *pool, DBConn *conn, const char *fmt, ...)
     return reply;
 }
 
-int DBGenericCommand(DBConnPool *pool, const char *fmt, ...)
+static int DBGenericCommand(DBConnPool *pool, const char *fmt, ...)
 {
     DBConn *conn = DBConnGet(pool);
     if (conn == NULL) {
@@ -70,7 +84,7 @@ int DBGenericCommand(DBConnPool *pool, const char *fmt, ...)
 }
 
 // redis-cli get [key]
-int DBGetString(DBConnPool *pool, const char *key, char *value)
+static int DBGetString(DBConnPool *pool, const char *key, char *value)
 {
     DBConn *conn = DBConnGet(pool);
     if (conn == NULL) {
@@ -99,7 +113,7 @@ int DBGetString(DBConnPool *pool, const char *key, char *value)
 }
 
 // redis-cli set [key] [value]
-int DBSetString(DBConnPool *pool, const char *key, const char *value)
+static int DBSetString(DBConnPool *pool, const char *key, const char *value)
 {
     DBConn *conn = DBConnGet(pool);
     if (conn == NULL) {
@@ -121,7 +135,7 @@ int DBSetString(DBConnPool *pool, const char *key, const char *value)
     return ret;
 }
 
-int DBGetInt32(DBConnPool *pool, const char *key, int32_t *value)
+static int DBGetInt32(DBConnPool *pool, const char *key, int32_t *value)
 {
     char buf[BUFFER_SIZE];
     int ret = DBGetString(pool, key, buf);
@@ -132,26 +146,26 @@ int DBGetInt32(DBConnPool *pool, const char *key, int32_t *value)
     return HIREDIS_OK;
 }
 
-int DBSetInt32(DBConnPool *pool, const char *key, int32_t value)
+static int DBSetInt32(DBConnPool *pool, const char *key, int32_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%d", value);
     return DBSetString(pool, key, buf);
 }
 
-int DBGetUint32(DBConnPool *pool, const char *key, uint32_t *value)
+static int DBGetUint32(DBConnPool *pool, const char *key, uint32_t *value)
 {
     return DBGetInt32(pool, key, (int32_t *)value);
 }
 
-int DBSetUint32(DBConnPool *pool, const char *key, uint32_t value)
+static int DBSetUint32(DBConnPool *pool, const char *key, uint32_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%u", value);
     return DBSetString(pool, key, buf);
 }
 
-int DBGetInt64(DBConnPool *pool, const char *key, int64_t *value)
+static int DBGetInt64(DBConnPool *pool, const char *key, int64_t *value)
 {
     char buf[BUFFER_SIZE];
     int ret = DBGetString(pool, key, buf);
@@ -162,14 +176,14 @@ int DBGetInt64(DBConnPool *pool, const char *key, int64_t *value)
     return HIREDIS_OK;
 }
 
-int DBSetInt64(DBConnPool *pool, const char *key, int64_t value)
+static int DBSetInt64(DBConnPool *pool, const char *key, int64_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%ld", value);
     return DBSetString(pool, key, buf);
 }
 
-int DBGetUint64(DBConnPool *pool, const char *key, uint64_t *value)
+static int DBGetUint64(DBConnPool *pool, const char *key, uint64_t *value)
 {
     char buf[BUFFER_SIZE];
     int ret = DBGetString(pool, key, buf);
@@ -180,7 +194,7 @@ int DBGetUint64(DBConnPool *pool, const char *key, uint64_t *value)
     return HIREDIS_OK;
 }
 
-int DBSetUint64(DBConnPool *pool, const char *key, uint64_t value)
+static int DBSetUint64(DBConnPool *pool, const char *key, uint64_t value)
 {
     char buf[BUFFER_SIZE];
     sprintf(buf, "%lu", value);
@@ -195,6 +209,12 @@ void __attribute__((constructor)) HiredisConnPoolInit()
     static const int MAX_NUM_CONNECTIONS_PER_CONNPOOL = 10;
     g_connPool = DBConnPoolCreate(MAX_NUM_CONNECTIONS_PER_CONNPOOL);
     assert(g_connPool != NULL);
+    // TODO: set redis-server config, e.g.: ip, port, timeout
+}
+
+void __attribute__((destructor)) HiredisConnPoolDestroy()
+{
+    DBConnPoolDestroy(g_connPool);
 }
 
 int HiredisGenericCommand(const char *fmt, ...)

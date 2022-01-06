@@ -1,14 +1,13 @@
 # hiredis connection pool demo
 
 ## TODO:
-1、complete pubsub API
+1、complete subscribe/psubscribe API
 
 
 ## 环境
-linux x86_64, install redis, hiredis, libevent:
+linux x86_64, install redis, hiredis:
 * redis 6.0.10
 * hiredis 1.0.2
-* libevent 2.0.18-stable
 
 ## compile and run
 

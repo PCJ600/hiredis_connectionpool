@@ -2,7 +2,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-
 #define MAX_LOG_BUF 1024
 
 static void HiredisClientLogRaw(int level, const char *buf)
@@ -10,8 +9,6 @@ static void HiredisClientLogRaw(int level, const char *buf)
     syslog(level, "%s", buf);
 }
 
-
-// 诊断日志
 void HiredisClientLog(int level, const char *fmt, ...)
 {
     va_list ap;
