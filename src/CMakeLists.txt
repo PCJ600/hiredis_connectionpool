@@ -11,7 +11,4 @@ include_directories(
 add_library(connpool SHARED hiredis_api.c hiredis_connpool.c hiredis_sub.c hiredis_log.c list.c)
 target_link_libraries(connpool hiredis pthread)
 
-add_executable(test_connpool test_connpool.c)
-target_link_libraries(test_connpool connpool)
-
 add_subdirectory(test)

@@ -14,8 +14,9 @@ linux x86_64, install redis, hiredis:
 ```
 redis-server /etc/redis/redis.conf # 1、firstly, start redis-server
 
-cd build 
+cd build/
 cmake ../ && make -j4
+cd test/
 ./test_connpool
 ```
 

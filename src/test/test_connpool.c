@@ -100,7 +100,7 @@ void testcase_single_connection() {
     }
     redisFree(c);
     time_t t2 = time(NULL);
-    printf("%ld s\n", t2 - t1);
+    printf("%s OK, cost: %ld s\n", __func__, t2 - t1);
 }
 
 void *PoolReader(void *args) {
@@ -150,7 +150,7 @@ void testcase_connpool()
     }
 
     time_t t2 = time(NULL);
-    printf("%ld s\n", t2 - t1);
+    printf("%s OK, cost: %ld s\n", __func__, t2 - t1);
 }
 
 void testcase_connpool_set_server_timeout()
@@ -178,7 +178,7 @@ void testcase_connpool_set_server_timeout()
 
     assert(HiredisGenericCommand("CONFIG SET timeout %d", 0) == 0);
     time_t t2 = time(NULL);
-    printf("%ld s\n", t2 - t1);
+    printf("%s OK, cost: %ld s\n", __func__, t2 - t1);
 }
 
 void testcase_getset_int32()
@@ -257,6 +257,7 @@ void testcase_log()
     HiredisClientLog(LOG_WARNING, "hello world!\n");
     HiredisClientLog(LOG_WARNING, "cost: %d\n", 1);
     HiredisClientLog(LOG_WARNING, "string: %s\n", "abc");
+    printf("%s OK\n", __func__);
 }
 
 
@@ -271,8 +272,8 @@ struct testFuncCxt {
 int testFunc(int a, int b)
 {
     int sum = a + b;
-    printf("a: %d, b: %d, sum: %d, g_counter: %d\n", a, b, sum, g_counter);
     g_counter += sum;
+    printf("a: %d, b: %d, sum: %d, g_counter: %d\n", a, b, sum, g_counter);
     return sum;
 }
 
@@ -290,14 +291,13 @@ void testcase_sub()
     cxt->args = (void *)&tfc;
 
     assert(HiredisSubscribe("hello", testCb, cxt) == 0);
-    sleep(3); // ensure subscribe finish before set!
+    sleep(3); // ensure subscribe finish before dbset!
 
-    const int NUM_REPEAT = 100;
+    const int NUM_REPEAT = 10;
     for (int i = 0; i < NUM_REPEAT; ++i) {
         assert(HiredisSetString("hello", "world") == 0);
     }
     sleep(3); // ensure callback finish before assert!
-    free(cxt);
     assert(g_counter == ((1 + 2) * NUM_REPEAT));
     printf("%s OK\n", __func__);
 }
@@ -309,24 +309,23 @@ void testcase_psub()
     struct testFuncCxt tfc = {testFunc, 1, 2};
     cxt->args = (void *)&tfc;
 
-    assert(HiredisPsubscribe("he*", testCb, cxt) == 0);
-    sleep(3); // ensure subscribe finish before set!
+    assert(HiredisPsubscribe("pat*", testCb, cxt) == 0);
+    sleep(3); // ensure subscribe finish before dbset!
 
-    const int NUM_REPEAT = 100;
+    const int NUM_REPEAT = 10;
     for (int i = 0; i < NUM_REPEAT; ++i) {
-        assert(HiredisSetString("hello", "world") == 0);
+        assert(HiredisSetString("pattern", "123") == 0);
     }
     sleep(3); // ensure callback finish before assert!
-    free(cxt);
     assert(g_counter == ((1 + 2) * NUM_REPEAT));
     printf("%s OK\n", __func__);
 }
 
 int main() {
-    // testcase_single_connection();
-    // testcase_log();
-    // testcase_pool();
+    testcase_single_connection();
+    testcase_log();
+    testcase_pool();
     testcase_sub();
-    // testcase_psub();
+    testcase_psub();
     return 0;
 }

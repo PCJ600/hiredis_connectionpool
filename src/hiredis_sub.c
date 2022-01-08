@@ -6,6 +6,8 @@
 #include <hiredis/hiredis.h>
 #include <unistd.h>
 
+#define SUB_DEFAULT_DBID 0
+
 // TODO: remove these fucking hardcoding!
 #define SERV_IP "127.0.0.1"
 #define SERV_PORT 6379
@@ -51,29 +53,46 @@ static void *SubThread(void *args)
     while(1) {
         if (redisGetReply(c, &reply) != REDIS_OK) {
             HiredisClientLog(LOG_ERR, "SubThread getreply failed, c->err: %d!\n", c->err);
-            freeReplyObject(reply);
-            redisFree(c);
-            free(args);
-            return NULL;
+            goto failed;
         }
         
-        char *eventType = ((redisReply *)reply)->element[2]->str;   // reply->element: [message, channel, eventType]
-        subCxt->event = _GetEventType(eventType);
-        t->cb(subCxt);
+        char *eventType;
+        redisReply *_r = (redisReply *)reply;
+        if (subCxt->subType == HIREDIS_SUBSCRIBE) { // SUBSCRIBE, reply->element: [message, channel, eventType]
+            if (_r->elements != 3) {
+                HiredisClientLog(LOG_ERR, "subscribe reply error, len(elements) should be 3, but now is %d!\n", _r->elements);
+                goto failed;
+            }
+            eventType = ((redisReply *)reply)->element[2]->str;
+            subCxt->event = _GetEventType(eventType);
+
+        } else { // PSUBSCRIBE reply->element: [pmessage, pattern, channel, eventType]
+            if (_r->elements != 4) {
+                HiredisClientLog(LOG_ERR, "psubscribe reply error, len(elements) should be 4, but now is %d!\n", _r->elements);
+                goto failed;
+            }
+            char *channel = ((redisReply *)reply)->element[2]->str;
+            strcpy(subCxt->channel, channel);
+            eventType = ((redisReply *)reply)->element[3]->str;
+            subCxt->event = _GetEventType(eventType);
+        }
+
         freeReplyObject(reply);
+        // do callback !
+        t->cb(subCxt);
     }
+
+failed:
+    freeReplyObject(reply);
     redisFree(c);
     free(args);
     return NULL;
 }
 
-// Subscribe
-static int _Subscribe(const char *key, hiredisSubCallback cb, hiredisSubContext *cxt)
-{
-    cxt->subType = HIREDIS_SUBSCRIBE;
-    strcpy(cxt->channel, key);
 
-    // 1、连接
+// 发送sub或psub请求, 成功返回redisContext *，失败返回NULL
+redisContext *sendSubRequest(const char *subCmd, int redisDbId, const char *key)
+{
     struct timeval tv;
     tv.tv_sec = CONN_TIMEOUT_SEC;
     tv.tv_usec = CONN_TIMEOUT_USEC;
@@ -85,18 +104,22 @@ static int _Subscribe(const char *key, hiredisSubCallback cb, hiredisSubContext 
         } else {
             HiredisClientLog(LOG_ERR, "redisConnect failed, redisContext is NULL!\n");
         }
-        return HIREDIS_SUB_CONNECT_ERR;
+        return NULL;
     }
     
-    redisReply *r = (redisReply *)redisCommand(c, "SUBSCRIBE __keyspace@0__:%s", key);
+    redisReply *r = (redisReply *)redisCommand(c, "%s __keyspace@%d__:%s", subCmd, redisDbId, key);
     if (r == NULL) {
-        HiredisClientLog(LOG_ERR, "SUBSCRIBE __keyspace@0__:%s failed, reply is nil\n", key);
+        HiredisClientLog(LOG_ERR, "%s __keyspace@%d__:%s failed, reply is nil\n", subCmd, redisDbId, key);
         redisFree(c);
-        return HIREDIS_SUB_REPLY_IS_NIL;
+        return NULL;
     }
     freeReplyObject(r);
-   
-    // 2、创建后台线程，死循环，每读取一个订阅消息触发一次回调
+    return c;
+}
+
+
+static int createSubThread(redisContext *c, hiredisSubCallback cb, hiredisSubContext *cxt)
+{
     pthread_t tid;
     SubThreadArgs *args = (SubThreadArgs *)malloc(sizeof(*args));
     args->c = c;
@@ -104,10 +127,25 @@ static int _Subscribe(const char *key, hiredisSubCallback cb, hiredisSubContext 
     args->cxt = cxt;
     int ret = pthread_create(&tid, NULL, SubThread, args);
     if (ret != 0) {
-        HiredisClientLog(LOG_ERR, "SUBSCRIBE __keyspace@0__:%s failed, pthread_create ret: %d\n", key, ret);
+        HiredisClientLog(LOG_ERR, "createSubThread failed, pthread_create ret: %d\n", ret);
+        free(args);
+        redisFree(c);
         return HIREDIS_SUB_PTHREAD_CREATE_FAILED;
     }
     return HIREDIS_SUB_OK;
+}
+
+// Subscribe
+static int _Subscribe(const char *key, hiredisSubCallback cb, hiredisSubContext *cxt)
+{
+    cxt->subType = HIREDIS_SUBSCRIBE;
+    strcpy(cxt->channel, key);
+
+    redisContext *c = sendSubRequest("SUBSCRIBE", SUB_DEFAULT_DBID, key);
+    if (c == NULL) {
+        return HIREDIS_SUB_CONNECT_ERR;
+    }
+    return createSubThread(c, cb, cxt);
 }
 
 
@@ -116,7 +154,12 @@ static int _Psubscribe(const char *key, hiredisSubCallback cb, hiredisSubContext
 {
     cxt->subType = HIREDIS_PSUBSCRIBE;
     strcpy(cxt->pattern, key);
-    return HIREDIS_SUB_OK;
+
+    redisContext *c = sendSubRequest("PSUBSCRIBE", SUB_DEFAULT_DBID, key);
+    if (c == NULL) {
+        return HIREDIS_SUB_CONNECT_ERR;
+    }
+    return createSubThread(c, cb, cxt);
 }
 
 
