@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <pthread.h>
-#include "hiredis/hiredis.h"
+#include "hiredis.h"
 #include "list.h"
 
 #define CONNPOOL_TRUE 1

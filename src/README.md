@@ -1,10 +1,6 @@
-# hiredis connection pool demo
+# hiredis connection pool
 
-## TODO:
-1、complete subscribe/psubscribe API
-
-
-## 环境
+## runtime environment
 linux x86_64, install redis, hiredis:
 * redis 6.0.10
 * hiredis 1.0.2

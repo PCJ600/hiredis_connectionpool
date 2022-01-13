@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <hiredis/hiredis.h>
+#include "hiredis.h"
 #include <unistd.h>
 
 #define SUB_DEFAULT_DBID 0

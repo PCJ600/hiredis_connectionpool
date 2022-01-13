@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.13)
-
 add_definitions("-g -Wall -Werror")
 
 include_directories(

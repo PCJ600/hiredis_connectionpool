@@ -1,7 +1,11 @@
+cmake_minimum_required(VERSION 2.8)
+
 project(hiredis_connpool)
 
-cmake_minimum_required(VERSION 3.13)
+# firstly , complie libhiredis.so
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/hiredis-1.0.2)
 
+# next, build hiredis connectionpool library
 add_definitions("-g -O0 -Wall -Werror")
 
 include_directories(
@@ -9,6 +13,8 @@ include_directories(
 )
 
 add_library(connpool SHARED hiredis_api.c hiredis_connpool.c hiredis_sub.c hiredis_log.c list.c)
+
 target_link_libraries(connpool hiredis pthread)
 
+# finally, build testcases
 add_subdirectory(test)

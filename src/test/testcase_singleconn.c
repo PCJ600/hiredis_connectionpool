@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-#include <hiredis/hiredis.h>
+#include "hiredis.h"
 #include <pthread.h>
 
 #define SERV_IP "127.0.0.1"

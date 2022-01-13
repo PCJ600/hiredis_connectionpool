@@ -6,7 +6,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <hiredis/hiredis.h>
+#include "hiredis.h"
 #include "hiredis_api.h"
 #include "hiredis_log.h"
 #include "hiredis_sub.h"
