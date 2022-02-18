@@ -53,7 +53,7 @@ typedef struct list {
 list *listCreate(void);
 void listRelease(list *list);
 void *listPopFront(list *list);
-void listPushBack(list *list, void *node);
+void listPushFront(list *list, void *node);
 int listisEmpty(list *list);
 
 #endif

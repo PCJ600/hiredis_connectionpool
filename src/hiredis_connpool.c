@@ -91,7 +91,7 @@ DBConnPool *DBConnPoolCreate(int max_conn_num)
             HiredisClientLog(LOG_ERR, "DBConnPoolCreate failed, initial connection err!\n");
             return NULL;
         }
-        listPushBack(p->free_conn_list, conn);
+        listPushFront(p->free_conn_list, conn);
     }
     return p;
 }
@@ -112,7 +112,7 @@ DBConn *DBConnGet(DBConnPool *pool)
                 pthread_mutex_unlock(&pool->mutex);
                 return NULL;
             }
-            listPushBack(pool->free_conn_list, conn);
+            listPushFront(pool->free_conn_list, conn);
             ++(pool->cur_conn_num);
         }
     }
@@ -127,7 +127,7 @@ void DBConnRelease(DBConnPool *pool, DBConn *conn)
 {
     pthread_mutex_lock(&pool->mutex);
 
-    listPushBack(pool->free_conn_list, conn);
+    listPushFront(pool->free_conn_list, conn);
     pthread_cond_signal(&pool->cond);
 
     pthread_mutex_unlock(&pool->mutex);
